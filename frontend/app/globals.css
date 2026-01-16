@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* カスタムスタイル */
+.container {
+  max-width: 1280px;
+}
+
+/* プログレスバーアニメーション */
+.progress-bar {
+  transition: width 0.3s ease-in-out;
+}
+
+/* テーブルホバー効果 */
+.table-row-hover:hover {
+  background-color: #f9fafb;
+}
