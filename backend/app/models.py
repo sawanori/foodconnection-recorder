@@ -84,6 +84,7 @@ class ReplicationJobModel(Base):
 
     id = Column(String, primary_key=True)
     source_url = Column(String, nullable=False)
+    screenshot_path = Column(String, nullable=True)
     status = Column(Enum(ReplicationStatus), default=ReplicationStatus.PENDING, nullable=False)
     current_iteration = Column(Integer, default=0, nullable=False)
     similarity_score = Column(Float, nullable=True)

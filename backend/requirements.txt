@@ -10,3 +10,7 @@ python-dotenv==1.0.0
 Pillow==10.1.0
 numpy==1.26.2
 scipy==1.11.4
+
+# 画像生成用
+anthropic>=0.40.0         # Claude Vision API
+scikit-learn>=1.3.0       # K-means（色抽出）

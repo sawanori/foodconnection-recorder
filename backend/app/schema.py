@@ -84,6 +84,7 @@ class Record:
 class ReplicationJob:
     id: str
     source_url: str
+    screenshot_path: Optional[str]
     status: ReplicationStatusEnum
     current_iteration: int
     similarity_score: Optional[float]
@@ -116,6 +117,7 @@ class CreateJobInput:
 class CreateReplicationJobInput:
     source_url: str
     output_dir: str
+    screenshot_path: Optional[str] = None
 
 
 def job_model_to_type(job: JobModel) -> Job:
@@ -157,6 +159,7 @@ def replication_job_model_to_type(job: ReplicationJobModel) -> ReplicationJob:
     return ReplicationJob(
         id=job.id,
         source_url=job.source_url,
+        screenshot_path=job.screenshot_path,
         status=ReplicationStatusEnum[job.status.name],
         current_iteration=job.current_iteration,
         similarity_score=job.similarity_score,
@@ -328,6 +331,7 @@ class Mutation:
             job = ReplicationJobModel(
                 id=str(uuid.uuid4()),
                 source_url=input.source_url,
+                screenshot_path=input.screenshot_path,
                 output_dir=input.output_dir,
                 status=ReplicationStatus.PENDING,
                 current_iteration=0,

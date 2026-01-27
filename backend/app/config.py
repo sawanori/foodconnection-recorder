@@ -42,9 +42,18 @@ class Settings(BaseSettings):
     # CORS設定
     FRONTEND_URL: str = "http://localhost:3000"
 
+    # 画像生成設定
+    IMAGE_GENERATOR: str = "claude"  # "claude" or "gemini"
+    ANTHROPIC_API_KEY: str = ""  # Claude API キー
+    GEMINI_API_KEY: str = ""  # Gemini API キー（オプション）
+    IMAGE_QUALITY: int = 85  # JPEG圧縮品質（50-95）
+    MAX_IMAGE_BASE64_SIZE: int = 3_600_000  # Base64最大サイズ（3.6MB）
+    GENERATION_TIMEOUT: int = 900  # API呼び出しタイムアウト（秒）
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+        extra = "ignore"  # 未定義の環境変数を許可
 
 
 settings = Settings()
