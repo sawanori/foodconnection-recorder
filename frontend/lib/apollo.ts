@@ -10,6 +10,14 @@ const httpLink = new HttpLink({
 const wsLink = typeof window !== 'undefined' ? new GraphQLWsLink(
   createClient({
     url: process.env.NEXT_PUBLIC_GRAPHQL_WS_URL || 'ws://localhost:8000/graphql',
+    retryAttempts: 3,
+    shouldRetry: () => false, // リトライしない（ポーリングで代替）
+    on: {
+      error: (error) => {
+        // WebSocketエラーを抑制（ポーリングで動作するため問題なし）
+        console.warn('WebSocket connection error (polling fallback enabled):', error);
+      },
+    },
   })
 ) : null;
 
