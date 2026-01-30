@@ -2,10 +2,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from strawberry.fastapi import GraphQLRouter
 from contextlib import asynccontextmanager
+import logging
 
 from app.schema import schema
 from app.database import init_db, close_db
 from app.config import settings
+
+# ログ設定
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s %(name)s %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 
 
 @asynccontextmanager

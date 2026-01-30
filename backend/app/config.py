@@ -43,7 +43,8 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
 
     # 画像生成設定
-    IMAGE_GENERATOR: str = "claude"  # "claude" or "gemini"
+    IMAGE_GENERATOR_MODEL: str = "claude"  # "claude" or "gemini"
+    IMAGE_GENERATOR: str = "claude"  # "claude" or "gemini" (deprecated, use IMAGE_GENERATOR_MODEL)
     ANTHROPIC_API_KEY: str = ""  # Claude API キー
     GEMINI_API_KEY: str = ""  # Gemini API キー（オプション）
     IMAGE_QUALITY: int = 85  # JPEG圧縮品質（50-95）

@@ -21,6 +21,7 @@ from .base_image_generator import (
     CSS_FROM_SCREENSHOT_PROMPT,
     JS_FROM_VIDEO_PROMPT,
 )
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -37,9 +38,16 @@ class ClaudeImageGenerator(BaseImageGenerator):
         import httpx
         self.model = model
         self.timeout = timeout
+
+        # APIキーを明示的に設定
+        api_key = settings.ANTHROPIC_API_KEY
+        if not api_key:
+            raise ValueError("ANTHROPIC_API_KEY is not set in environment or config")
+
         self.client = anthropic.Anthropic(
+            api_key=api_key,
             timeout=httpx.Timeout(timeout, read=timeout, write=10.0, connect=5.0)
-        )  # ANTHROPIC_API_KEY環境変数から自動取得  # ANTHROPIC_API_KEY環境変数から自動取得
+        )
 
     def get_model_name(self) -> str:
         """使用しているモデル名を返す"""

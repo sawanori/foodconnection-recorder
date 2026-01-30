@@ -47,12 +47,12 @@ export const GET_RECORDS = gql`
   }
 `;
 
-// サイト複製クエリ
+// サイト複製クエリ（フォルダベース）
 export const GET_REPLICATION_JOBS = gql`
   query GetReplicationJobs {
     replicationJobs {
       id
-      sourceUrl
+      inputFolder
       status
       currentIteration
       similarityScore
@@ -71,7 +71,7 @@ export const GET_REPLICATION_JOB = gql`
   query GetReplicationJob($id: ID!) {
     replicationJob(id: $id) {
       id
-      sourceUrl
+      inputFolder
       status
       currentIteration
       similarityScore
@@ -83,5 +83,12 @@ export const GET_REPLICATION_JOB = gql`
       createdAt
       updatedAt
     }
+  }
+`;
+
+// ディレクトリ選択
+export const SELECT_DIRECTORY = gql`
+  query SelectDirectory {
+    selectDirectory
   }
 `;

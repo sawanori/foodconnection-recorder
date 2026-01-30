@@ -66,6 +66,32 @@ class JobRunner:
             )
             job = result.scalar_one()
 
+            # 単一URLジョブの場合はURL収集をスキップ
+            if job.job_type == 'single':
+                # 単一URLジョブ用のレコードを作成
+                record = RecordModel(
+                    id=str(uuid.uuid4()),
+                    job_id=job_id,
+                    detail_page_url=job.source_url,
+                    status=RecordStatus.PENDING,
+                )
+                session.add(record)
+
+                # ジョブ更新
+                job.total_items = 1
+                await session.commit()
+
+                # 進捗配信
+                await publish_job_progress(job_id, {
+                    "job_id": job_id,
+                    "status": JobStatus.RUNNING.value,
+                    "total_items": 1,
+                    "processed_items": 0,
+                    "current_record": None
+                })
+                return
+
+            # バルクジョブの場合はURL収集を実行
             all_urls = []
             for page_num in range(job.start_page, job.end_page + 1):
                 if self._should_stop(job_id):

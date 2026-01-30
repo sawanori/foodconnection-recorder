@@ -40,13 +40,27 @@ export const RETRY_RECORD = gql`
   }
 `;
 
-// サイト複製ミューテーション
+// 単体URLジョブ作成
+export const CREATE_SINGLE_URL_JOB = gql`
+  mutation CreateSingleUrlJob($input: CreateSingleUrlJobInput!) {
+    createSingleUrlJob(input: $input) {
+      id
+      jobType
+      sourceUrl
+      outputDir
+      status
+    }
+  }
+`;
+
+// サイト複製ミューテーション（フォルダベース）
 export const CREATE_REPLICATION_JOB = gql`
   mutation CreateReplicationJob($input: CreateReplicationJobInput!) {
     createReplicationJob(input: $input) {
       id
-      sourceUrl
+      inputFolder
       outputDir
+      modelType
       status
     }
   }

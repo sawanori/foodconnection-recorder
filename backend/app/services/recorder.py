@@ -5,11 +5,15 @@ Playwrightを使用してページを録画します。
 タイムフィット・スクロールアルゴリズムを実装しています。
 """
 import asyncio
+import logging
+from datetime import datetime
 from pathlib import Path
 from playwright.async_api import async_playwright, Page
 from app.config import settings
 from app.utils.filename import sanitize_filename, get_unique_filename
 from app.services.errors import NetworkError, TimeoutError, FileSystemError
+
+logger = logging.getLogger(__name__)
 
 
 class RecorderService:
@@ -109,6 +113,18 @@ class RecorderService:
                     temp_video_path = video_files[-1]  # 最新のファイル
                     final_video_path = video_dir / video_filename
                     temp_video_path.rename(final_video_path)
+
+                # URL情報を保存（バルクジョブ対応: 各録画に対応するファイルを作成）
+                try:
+                    url_info_path = Path(settings.OUTPUT_BASE_DIR) / output_dir / f"{unique_name}_url.txt"
+                    with open(url_info_path, 'w', encoding='utf-8') as f:
+                        f.write(f"URL={url}\n")
+                        f.write(f"RECORDED_AT={datetime.now().isoformat()}\n")
+                        f.write(f"SHOP_NAME={shop_name}\n")
+                    logger.info(f"URL info saved: {url_info_path}")
+                except Exception as e:
+                    # URL保存失敗は警告のみ（録画処理は成功扱い）
+                    logger.warning(f"Failed to save URL info: {e}")
 
                 return {
                     "video_filename": video_filename,

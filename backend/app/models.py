@@ -31,6 +31,7 @@ class ReplicationStatus(str, enum.Enum):
     VERIFYING_2 = "verifying_2"
     VERIFYING_3 = "verifying_3"
     COMPLETED = "completed"
+    COMPLETED_WITH_WARNINGS = "completed_with_warnings"  # 新規追加
     FAILED = "failed"
 
 
@@ -38,8 +39,10 @@ class JobModel(Base):
     __tablename__ = "jobs"
 
     id = Column(String, primary_key=True)
-    start_page = Column(Integer, nullable=False)
-    end_page = Column(Integer, nullable=False)
+    job_type = Column(String, default="bulk", nullable=False)  # "bulk" or "single"
+    start_page = Column(Integer, nullable=True)  # NULLable for single URL mode
+    end_page = Column(Integer, nullable=True)    # NULLable for single URL mode
+    source_url = Column(String, nullable=True)   # For single URL mode
     output_dir = Column(String, nullable=False)
     status = Column(Enum(JobStatus), default=JobStatus.PENDING, nullable=False)
     total_items = Column(Integer, default=0, nullable=False)
@@ -65,6 +68,7 @@ class RecordModel(Base):
     detail_page_url = Column(String, nullable=False)
     video_filename = Column(String, nullable=True)
     screenshot_filename = Column(String, nullable=True)
+    html_filename = Column(String, nullable=True)
     status = Column(Enum(RecordStatus), default=RecordStatus.PENDING, nullable=False)
     error_message = Column(String, nullable=True)
     retry_count = Column(Integer, default=0, nullable=False)
@@ -83,8 +87,9 @@ class ReplicationJobModel(Base):
     __tablename__ = "replication_jobs"
 
     id = Column(String, primary_key=True)
-    source_url = Column(String, nullable=False)
-    screenshot_path = Column(String, nullable=True)
+    input_folder = Column(String, nullable=False)  # 入力フォルダパス（.png含む）
+    source_url = Column(String, nullable=True)  # 旧: 複製元URL（後方互換性のため残す）
+    model_type = Column(String, nullable=True, default="claude")  # 使用するモデル（claude/gemini）
     status = Column(Enum(ReplicationStatus), default=ReplicationStatus.PENDING, nullable=False)
     current_iteration = Column(Integer, default=0, nullable=False)
     similarity_score = Column(Float, nullable=True)
@@ -98,9 +103,12 @@ class ReplicationJobModel(Base):
     # エラー情報
     error_message = Column(String, nullable=True)
 
+    # 警告情報（部分的成功時）
+    warnings = Column(String, nullable=True)
+
     # タイムスタンプ
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     def __repr__(self):
-        return f"<ReplicationJob(id={self.id}, url={self.source_url}, status={self.status})>"
+        return f"<ReplicationJob(id={self.id}, folder={self.input_folder}, status={self.status})>"
