@@ -129,6 +129,14 @@ class ReplicatorRunner:
             except Exception as e:
                 logger.warning(f"Refinement failed, using original generation: {e}")
 
+            # Phase 4: 生成完了後の追加リファインメント（URL情報を使用）
+            if source_url:
+                logger.info("Starting post-generation URL-based refinement...")
+                try:
+                    await self._post_generation_url_refinement(job_id, source_url, output_dir)
+                except Exception as e:
+                    logger.warning(f"Post-generation URL refinement failed: {e}")
+
             # 完了 - 部分的成功のチェック
             if '_metadata' in generated_code and generated_code['_metadata'].get('failed_sections'):
                 failed = generated_code['_metadata']['failed_sections']
@@ -928,32 +936,9 @@ class ReplicatorRunner:
             logger.warning("Screenshot analysis failed, falling back to simple refinement")
             screenshot_analysis = "（画像分析に失敗したため、画像を直接参照してください）"
 
-        # URL情報の追加（Phase 3統合版）
-        url_context = ""
-        if source_url:
-            url_context = f"""
-## 元のWebページ情報
-
-**元のURL**: {source_url}
-
-このURLのWebページをキャプチャしたスクリーンショット（添付画像）です。
-生成されたコードをこのスクリーンショットのデザインに**完全一致**させることが最優先目標です。
-
-特に以下の点に注意してください：
-- 色の完全一致（背景色、文字色、ボーダー色）
-- フォントの完全一致（サイズ、太さ、行間、font-family）
-- 余白・レイアウトの完全一致（margin, padding, 配置）
-- 画像サイズ・配置の完全一致
-
-"""
-            logger.info(f"Using source URL context in refinement: {source_url}")
-        else:
-            logger.info("No source URL available, using image-only refinement")
-
-        # Phase 2: 分析結果 + URL情報 + 既存コード全量でリファインメント
+        # Phase 2: 分析結果 + 既存コード全量でリファインメント
         refinement_prompt = f"""# タスク: 画像ベースのコード改善（完全一致を目指す）
 
-{url_context}
 
 ## Phase 1: 画像分析結果
 
@@ -1101,3 +1086,173 @@ class ReplicatorRunner:
         except Exception as e:
             logger.error(f"Refinement API call failed: {e}")
             return None
+
+    async def _post_generation_url_refinement(self, job_id: str, source_url: str, output_dir: str) -> bool:
+        """
+        生成完了後の追加リファインメントステップ（URL情報を使用）
+        
+        ユーザーの手動フロー：
+        1. サイト複製で3ファイル生成
+        2. デスクトップ版Claudeに3ファイル + URLを添付
+        3. 「このURLのデザインに完全一致させてください」と依頼
+        
+        この手動プロセスを自動化します。
+        
+        Args:
+            job_id: ジョブID
+            source_url: 元のWebページURL
+            output_dir: 出力ディレクトリ
+            
+        Returns:
+            True if refinement succeeded, False otherwise
+        """
+        if not source_url:
+            logger.info("No source URL available, skipping post-generation refinement")
+            return False
+            
+        logger.info(f"Starting post-generation URL refinement: {source_url}")
+        
+        try:
+            # 生成されたファイルを読み込む
+            html_file = os.path.join(output_dir, "index.html")
+            css_file = os.path.join(output_dir, "styles.css")
+            js_file = os.path.join(output_dir, "script.js")
+            
+            with open(html_file, 'r', encoding='utf-8') as f:
+                html_content = f.read()
+            with open(css_file, 'r', encoding='utf-8') as f:
+                css_content = f.read()
+            with open(js_file, 'r', encoding='utf-8') as f:
+                js_content = f.read()
+                
+            # URL情報を使った追加リファインメントプロンプト
+            post_refinement_prompt = f"""# タスク: 生成されたWebサイトを元のURLのデザインに完全一致させる
+
+## 元のWebページ情報
+
+**参考URL**: {source_url}
+
+上記URLのWebページをキャプチャして生成したHTML/CSS/JSファイルです。
+このURLのWebページのデザインに**完全一致**するように、以下の3ファイルを修正してください。
+
+## 最重要目標
+
+元のWebページ（{source_url}）のデザインと**ピクセル単位で完全一致**させることです。
+
+特に以下の点に注意：
+1. **色の完全一致**: 背景色、文字色、ボーダー色、グラデーション
+2. **レイアウトの完全一致**: 余白、パディング、配置、サイズ
+3. **フォントの完全一致**: font-family, font-size, font-weight, line-height, letter-spacing
+4. **視覚効果の完全一致**: shadow, border-radius, opacity, transition
+
+## 既存コード
+
+### HTML (index.html)
+```html
+{html_content}
+```
+
+### CSS (styles.css)
+```css
+{css_content}
+```
+
+### JavaScript (script.js)
+```javascript
+{js_content}
+```
+
+## 出力形式
+
+完全一致させた3ファイルを以下の形式で出力してください：
+
+```html:index.html
+[修正されたHTML全体]
+```
+
+```css:styles.css
+[修正されたCSS全体]
+```
+
+```javascript:script.js
+[修正されたJavaScript全体]
+```
+
+**重要**: コード全体を出力してください。省略せず、すべての行を含めてください。
+"""
+
+            # Anthropic APIを直接使用して追加リファインメント
+            from anthropic import AsyncAnthropic
+            client = AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+
+            response = await client.messages.create(
+                model="claude-opus-4-20250514",
+                max_tokens=16000,
+                messages=[{
+                    "role": "user",
+                    "content": post_refinement_prompt
+                }]
+            )
+
+            # レスポンスからコードを抽出
+            refined_result = self._extract_code_blocks(response.content[0].text)
+            
+            if refined_result and all(k in refined_result for k in ['html', 'css', 'js']):
+                # リファインメント成功 - ファイルを上書き
+                with open(html_file, 'w', encoding='utf-8') as f:
+                    f.write(refined_result['html'])
+                with open(css_file, 'w', encoding='utf-8') as f:
+                    f.write(refined_result['css'])
+                with open(js_file, 'w', encoding='utf-8') as f:
+                    f.write(refined_result['js'])
+                    
+                logger.info(f"Post-generation URL refinement completed successfully")
+                return True
+            else:
+                logger.warning("Post-generation refinement returned incomplete result")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Post-generation URL refinement failed: {e}")
+            return False
+
+
+    def _extract_code_blocks(self, text: str) -> dict:
+        """
+        Claude APIレスポンスからコードブロックを抽出
+        
+        Args:
+            text: Claude APIのレスポンステキスト
+            
+        Returns:
+            {'html': str, 'css': str, 'js': str}
+        """
+        import re
+        
+        result = {'html': '', 'css': '', 'js': ''}
+        
+        # HTML抽出
+        html_match = re.search(r'```html:index\.html\s*\n(.*?)```', text, re.DOTALL)
+        if not html_match:
+            html_match = re.search(r'```html\s*\n(.*?)```', text, re.DOTALL)
+        if html_match:
+            result['html'] = html_match.group(1).strip()
+            
+        # CSS抽出
+        css_match = re.search(r'```css:styles\.css\s*\n(.*?)```', text, re.DOTALL)
+        if not css_match:
+            css_match = re.search(r'```css\s*\n(.*?)```', text, re.DOTALL)
+        if css_match:
+            result['css'] = css_match.group(1).strip()
+            
+        # JavaScript抽出  
+        js_match = re.search(r'```javascript:script\.js\s*\n(.*?)```', text, re.DOTALL)
+        if not js_match:
+            js_match = re.search(r'```javascript\s*\n(.*?)```', text, re.DOTALL)
+        if not js_match:
+            js_match = re.search(r'```js\s*\n(.*?)```', text, re.DOTALL)
+        if js_match:
+            result['js'] = js_match.group(1).strip()
+            
+        return result
+
