@@ -1189,7 +1189,14 @@ class ReplicatorRunner:
 
             # Anthropic APIを直接使用して追加リファインメント
             from anthropic import AsyncAnthropic
-            client = AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+            import httpx
+
+            # 長時間実行用のタイムアウト設定
+            timeout = httpx.Timeout(600.0, connect=60.0)  # 10分タイムアウト
+            client = AsyncAnthropic(
+                api_key=settings.ANTHROPIC_API_KEY,
+                timeout=timeout
+            )
 
             response = await client.messages.create(
                 model="claude-opus-4-20250514",

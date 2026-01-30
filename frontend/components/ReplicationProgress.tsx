@@ -43,15 +43,19 @@ export function ReplicationProgress({ jobId }: ReplicationProgressProps) {
   const [refineWithUrl] = useMutation(REFINE_WITH_URL);
 
   const handleBrushUp = async () => {
+    if (!confirm('ブラッシュアップには数分かかる場合があります。実行しますか？')) {
+      return;
+    }
     setIsRefining(true);
     setRefineError(null);
     try {
       await refineWithUrl({ variables: { id: jobId } });
-      alert('ブラッシュアップが完了しました！');
+      alert('ブラッシュアップが完了しました！ファイルが更新されています。');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '不明なエラー';
       setRefineError(errorMessage);
       console.error('Brush up failed:', err);
+      alert(`エラーが発生しました: ${errorMessage}`);
     } finally {
       setIsRefining(false);
     }
@@ -166,8 +170,16 @@ export function ReplicationProgress({ jobId }: ReplicationProgressProps) {
           <div className="p-4 bg-blue-50 rounded-md border border-blue-200">
             <h3 className="font-medium text-blue-800 mb-2">デザイン品質向上</h3>
             <p className="text-sm text-blue-700 mb-3">
-              URL情報を使って、元のWebページのデザインに完全一致させます
+              URL情報を使って、元のWebページのデザインに完全一致させます（処理時間: 約3〜5分）
             </p>
+            {isRefining && (
+              <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                <div className="flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600"></div>
+                  <span className="text-sm text-yellow-800">処理中... このページを閉じないでください</span>
+                </div>
+              </div>
+            )}
             <button
               onClick={handleBrushUp}
               disabled={isRefining}
@@ -177,7 +189,7 @@ export function ReplicationProgress({ jobId }: ReplicationProgressProps) {
                   : 'bg-blue-600 hover:bg-blue-700 text-white'
               }`}
             >
-              {isRefining ? 'ブラッシュアップ中...' : '🎨 ブラッシュアップ'}
+              {isRefining ? '⏳ ブラッシュアップ中...' : '🎨 ブラッシュアップ'}
             </button>
             {refineError && (
               <p className="text-sm text-red-600 mt-2">エラー: {refineError}</p>
