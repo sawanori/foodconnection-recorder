@@ -75,3 +75,13 @@ export const START_REPLICATION = gql`
     }
   }
 `;
+
+export const REFINE_WITH_URL = gql`
+  mutation RefineWithUrl($id: ID!) {
+    refineWithUrl(id: $id) {
+      id
+      status
+      updatedAt
+    }
+  }
+`;

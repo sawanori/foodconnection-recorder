@@ -129,14 +129,6 @@ class ReplicatorRunner:
             except Exception as e:
                 logger.warning(f"Refinement failed, using original generation: {e}")
 
-            # Phase 4: 生成完了後の追加リファインメント（URL情報を使用）
-            if source_url:
-                logger.info("Starting post-generation URL-based refinement...")
-                try:
-                    await self._post_generation_url_refinement(job_id, source_url, output_dir)
-                except Exception as e:
-                    logger.warning(f"Post-generation URL refinement failed: {e}")
-
             # 完了 - 部分的成功のチェック
             if '_metadata' in generated_code and generated_code['_metadata'].get('failed_sections'):
                 failed = generated_code['_metadata']['failed_sections']
@@ -1087,25 +1079,39 @@ class ReplicatorRunner:
             logger.error(f"Refinement API call failed: {e}")
             return None
 
-    async def _post_generation_url_refinement(self, job_id: str, source_url: str, output_dir: str) -> bool:
+    async def post_generation_url_refinement(self, job_id: str) -> bool:
         """
         生成完了後の追加リファインメントステップ（URL情報を使用）
-        
+
         ユーザーの手動フロー：
         1. サイト複製で3ファイル生成
-        2. デスクトップ版Claudeに3ファイル + URLを添付
-        3. 「このURLのデザインに完全一致させてください」と依頼
-        
-        この手動プロセスを自動化します。
-        
+        2. 生成完了画面で「ブラッシュアップ」ボタンを押す
+        3. URL情報を使ってデザインを完全一致させる
+
         Args:
             job_id: ジョブID
-            source_url: 元のWebページURL
-            output_dir: 出力ディレクトリ
-            
+
         Returns:
             True if refinement succeeded, False otherwise
         """
+        # ジョブ情報取得
+        async with get_session() as session:
+            result = await session.execute(
+                select(ReplicationJobModel).where(ReplicationJobModel.id == job_id)
+            )
+            job = result.scalar_one()
+            output_dir = job.output_dir
+            input_folder = job.input_folder
+
+        # URL情報を読み込み
+        source_url = None
+        try:
+            # スクリーンショットファイルからベース名を取得
+            screenshot_path = await self._find_screenshot(job_id)
+            source_url = await self._read_url_file(job_id, screenshot_path)
+        except Exception as e:
+            logger.warning(f"Failed to read URL info: {e}")
+
         if not source_url:
             logger.info("No source URL available, skipping post-generation refinement")
             return False

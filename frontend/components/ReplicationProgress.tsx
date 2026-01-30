@@ -1,7 +1,9 @@
 'use client';
 
-import { useQuery } from '@apollo/client';
+import { useState } from 'react';
+import { useQuery, useMutation } from '@apollo/client';
 import { GET_REPLICATION_JOB } from '@/lib/graphql/queries';
+import { REFINE_WITH_URL } from '@/lib/graphql/mutations';
 
 interface ReplicationProgressProps {
   jobId: string;
@@ -30,10 +32,30 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export function ReplicationProgress({ jobId }: ReplicationProgressProps) {
+  const [isRefining, setIsRefining] = useState(false);
+  const [refineError, setRefineError] = useState<string | null>(null);
+
   const { data, loading, error } = useQuery(GET_REPLICATION_JOB, {
     variables: { id: jobId },
     pollInterval: 2000, // 2秒ごとにポーリング
   });
+
+  const [refineWithUrl] = useMutation(REFINE_WITH_URL);
+
+  const handleBrushUp = async () => {
+    setIsRefining(true);
+    setRefineError(null);
+    try {
+      await refineWithUrl({ variables: { id: jobId } });
+      alert('ブラッシュアップが完了しました！');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : '不明なエラー';
+      setRefineError(errorMessage);
+      console.error('Brush up failed:', err);
+    } finally {
+      setIsRefining(false);
+    }
+  };
 
   if (loading && !data) {
     return (
@@ -127,16 +149,40 @@ export function ReplicationProgress({ jobId }: ReplicationProgressProps) {
 
       {/* 完了時の出力ファイル */}
       {isCompleted && (
-        <div className="mt-4 p-4 bg-green-50 rounded-md">
-          <h3 className="font-medium text-green-800 mb-2">生成ファイル</h3>
-          <ul className="text-sm text-green-700 space-y-1">
-            {job.htmlFilename && <li>HTML: {job.htmlFilename}</li>}
-            {job.cssFilename && <li>CSS: {job.cssFilename}</li>}
-            {job.jsFilename && <li>JS: {job.jsFilename}</li>}
-          </ul>
-          <p className="text-sm text-green-700 mt-2">
-            出力先: output/{job.outputDir}/replicated/
-          </p>
+        <div className="mt-4 space-y-4">
+          <div className="p-4 bg-green-50 rounded-md">
+            <h3 className="font-medium text-green-800 mb-2">生成ファイル</h3>
+            <ul className="text-sm text-green-700 space-y-1">
+              {job.htmlFilename && <li>HTML: {job.htmlFilename}</li>}
+              {job.cssFilename && <li>CSS: {job.cssFilename}</li>}
+              {job.jsFilename && <li>JS: {job.jsFilename}</li>}
+            </ul>
+            <p className="text-sm text-green-700 mt-2">
+              出力先: output/{job.outputDir}/replicated/
+            </p>
+          </div>
+
+          {/* ブラッシュアップボタン */}
+          <div className="p-4 bg-blue-50 rounded-md border border-blue-200">
+            <h3 className="font-medium text-blue-800 mb-2">デザイン品質向上</h3>
+            <p className="text-sm text-blue-700 mb-3">
+              URL情報を使って、元のWebページのデザインに完全一致させます
+            </p>
+            <button
+              onClick={handleBrushUp}
+              disabled={isRefining}
+              className={`w-full px-4 py-3 rounded-md font-medium transition-colors ${
+                isRefining
+                  ? 'bg-gray-400 cursor-not-allowed text-white'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+              }`}
+            >
+              {isRefining ? 'ブラッシュアップ中...' : '🎨 ブラッシュアップ'}
+            </button>
+            {refineError && (
+              <p className="text-sm text-red-600 mt-2">エラー: {refineError}</p>
+            )}
+          </div>
         </div>
       )}
 

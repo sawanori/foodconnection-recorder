@@ -507,6 +507,34 @@ class Mutation:
 
             return replication_job_model_to_type(job)
 
+    @strawberry.mutation
+    async def refine_with_url(self, id: strawberry.ID) -> ReplicationJob:
+        """URL情報を使ってブラッシュアップ（生成完了後の追加リファインメント）"""
+        async with get_session() as session:
+            result = await session.execute(
+                select(ReplicationJobModel).where(ReplicationJobModel.id == id)
+            )
+            job = result.scalar_one()
+
+            # ステータス確認
+            if job.status not in [ReplicationStatus.COMPLETED, ReplicationStatus.COMPLETED_WITH_WARNINGS]:
+                raise ValueError(f"Replication job {id} is not completed yet")
+
+            # モデルタイプを取得
+            model_type = job.model_type or "claude"
+
+            # ブラッシュアップ実行
+            runner = ReplicatorRunner(model_type=model_type)
+            success = await runner.post_generation_url_refinement(id)
+
+            if success:
+                # 成功したらタイムスタンプを更新
+                job.updated_at = datetime.now()
+                await session.commit()
+                await session.refresh(job)
+
+            return replication_job_model_to_type(job)
+
 
 @strawberry.type
 class Subscription:
