@@ -59,6 +59,7 @@ export const CREATE_REPLICATION_JOB = gql`
     createReplicationJob(input: $input) {
       id
       inputFolder
+      sourceUrl
       outputDir
       modelType
       status

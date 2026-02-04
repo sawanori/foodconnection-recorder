@@ -138,6 +138,7 @@ class CreateReplicationJobInput:
     input_folder: str  # 入力フォルダパス（.png含む）
     output_dir: str
     model: Optional[ImageGeneratorModelEnum] = None  # 使用するモデル（デフォルトはClaude）
+    source_url: Optional[str] = None  # ブラッシュアップ用の参照URL
 
 
 def job_model_to_type(job: JobModel) -> Job:
@@ -477,6 +478,7 @@ class Mutation:
                 input_folder=input.input_folder,
                 output_dir=input.output_dir,
                 model_type=model_type,
+                source_url=input.source_url,  # ブラッシュアップ用URL
                 status=ReplicationStatus.PENDING,
                 current_iteration=0,
             )

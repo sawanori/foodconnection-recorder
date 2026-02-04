@@ -281,9 +281,10 @@ class ReplicatorRunner:
         スクリーンショットに対応するURL情報ファイルを読み込む
 
         検索順序:
-        1. {base_name}_url.txt（録画ファイルに対応）
-        2. source_url.txt（レガシー形式）
-        3. DB保存されたsource_url（フォールバック）
+        1. FireShotファイル名からURL抽出（[domain.com]形式）
+        2. {base_name}_url.txt（録画ファイルに対応）
+        3. source_url.txt（レガシー形式）
+        4. DB保存されたsource_url（フォールバック）
 
         Args:
             job_id: ジョブID
@@ -292,6 +293,8 @@ class ReplicatorRunner:
         Returns:
             URL文字列、見つからない場合はNone
         """
+        import re
+
         async with get_session() as session:
             result = await session.execute(
                 select(ReplicationJobModel).where(ReplicationJobModel.id == job_id)
@@ -302,6 +305,17 @@ class ReplicatorRunner:
         # スクリーンショットのファイル名からベース名を取得
         # 例: shop1_screenshot.png → shop1
         screenshot_basename = os.path.basename(screenshot_path)
+
+        # FireShotファイル名からURLを抽出（[domain.com]形式）
+        # 例: "FireShot Capture 011 - タイトル - [www.example.com].png"
+        fireshot_pattern = r'\[([^\]]+\.[^\]]+)\]'
+        fireshot_match = re.search(fireshot_pattern, screenshot_basename)
+        if fireshot_match:
+            domain = fireshot_match.group(1)
+            extracted_url = f"https://{domain}"
+            logger.info(f"Extracted URL from FireShot filename: {extracted_url}")
+            return extracted_url
+
         base_name = screenshot_basename.replace("_screenshot.png", "").replace(".png", "")
 
         # 対応するURL情報ファイルを検索
@@ -694,6 +708,10 @@ class ReplicatorRunner:
         html_content = html_content.replace('src="./script.js"', 'src="script.js"')
         html_content = html_content.replace("src='./script.js'", "src='script.js'")
 
+        # style.css → styles.css に統一（AIが時々 style.css を生成するため）
+        html_content = html_content.replace('href="style.css"', 'href="styles.css"')
+        html_content = html_content.replace("href='style.css'", "href='styles.css'")
+
         # styles.cssへのリンクが存在しない場合のみ追加
         has_css_link = 'href="styles.css"' in html_content or "href='styles.css'" in html_content
         if not has_css_link and code.get("css"):
@@ -723,6 +741,10 @@ class ReplicatorRunner:
                     "</BODY>",
                     '  <script src="script.js"></script>\n</BODY>'
                 )
+
+        # デバッグログ: code dictの内容を確認
+        logger.info(f"Saving files - code dict keys: {list(code.keys())}")
+        logger.info(f"HTML length: {len(html_content)}, CSS length: {len(code.get('css', ''))}, JS length: {len(code.get('js', ''))}")
 
         with open(html_path, 'w', encoding='utf-8') as f:
             f.write(html_content)
@@ -1209,20 +1231,32 @@ class ReplicatorRunner:
 
             # レスポンスからコードを抽出
             refined_result = self._extract_code_blocks(response.content[0].text)
-            
-            if refined_result and all(k in refined_result for k in ['html', 'css', 'js']):
+
+            # 抽出結果のログ
+            logger.info(f"Extracted code lengths - HTML: {len(refined_result.get('html', ''))}, CSS: {len(refined_result.get('css', ''))}, JS: {len(refined_result.get('js', ''))}")
+
+            # キーが存在し、かつ値が空でないことを確認
+            has_valid_content = (
+                refined_result.get('html') and
+                refined_result.get('css') and
+                len(refined_result['html']) > 100 and
+                len(refined_result['css']) > 100
+            )
+
+            if has_valid_content:
                 # リファインメント成功 - ファイルを上書き
                 with open(html_file, 'w', encoding='utf-8') as f:
                     f.write(refined_result['html'])
                 with open(css_file, 'w', encoding='utf-8') as f:
                     f.write(refined_result['css'])
                 with open(js_file, 'w', encoding='utf-8') as f:
-                    f.write(refined_result['js'])
-                    
+                    f.write(refined_result.get('js', ''))
+
                 logger.info(f"Post-generation URL refinement completed successfully")
                 return True
             else:
-                logger.warning("Post-generation refinement returned incomplete result")
+                logger.warning(f"Post-generation refinement returned incomplete result - not overwriting files")
+                logger.warning(f"Response preview: {response.content[0].text[:500]}...")
                 return False
                 
         except Exception as e:

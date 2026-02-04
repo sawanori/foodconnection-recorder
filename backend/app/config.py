@@ -11,7 +11,7 @@ class Settings(BaseSettings):
 
     # Playwright設定
     PLAYWRIGHT_HEADLESS: bool = True
-    PLAYWRIGHT_TIMEOUT: int = 30000  # ミリ秒
+    PLAYWRIGHT_TIMEOUT: int = 60000  # ミリ秒（60秒: 重いページ対応）
 
     # 録画設定
     RECORDING_WIDTH: int = 1366

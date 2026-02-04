@@ -16,6 +16,7 @@ type ModelType = 'CLAUDE' | 'GEMINI';
 export function ReplicationForm({ onJobStarted }: ReplicationFormProps) {
   const [inputFolder, setInputFolder] = useState('');
   const [outputDir, setOutputDir] = useState('');
+  const [sourceUrl, setSourceUrl] = useState('');
   const [model, setModel] = useState<ModelType>('CLAUDE');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -100,6 +101,7 @@ export function ReplicationForm({ onJobStarted }: ReplicationFormProps) {
             inputFolder,
             outputDir,
             model,
+            sourceUrl: sourceUrl.trim() || null,
           },
         },
       });
@@ -189,6 +191,25 @@ export function ReplicationForm({ onJobStarted }: ReplicationFormProps) {
           </div>
           <p className="text-sm text-gray-500 mt-1">
             HTML/CSS/JSファイルの出力先フォルダ
+          </p>
+        </div>
+
+        {/* 参照URL（ブラッシュアップ用） */}
+        <div>
+          <label htmlFor="sourceUrl" className="block text-sm font-medium text-gray-700 mb-1">
+            参照URL（任意）
+          </label>
+          <input
+            type="url"
+            id="sourceUrl"
+            value={sourceUrl}
+            onChange={(e) => setSourceUrl(e.target.value)}
+            disabled={isSubmitting || isSelecting}
+            placeholder="https://example.com"
+            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100"
+          />
+          <p className="text-sm text-gray-500 mt-1">
+            ブラッシュアップ時にデザインを完全一致させるための参照URL
           </p>
         </div>
 
